@@ -5,7 +5,7 @@ import api from '../api';
 import {
   Truck, Users, Route, Wrench, TrendingUp, AlertTriangle, Clock,
   Activity, ShieldCheck, ArrowRight, DollarSign, BarChart3,
-  MoreHorizontal, CheckCircle2, Bell, Sparkles
+  MoreHorizontal, CheckCircle2, Bell, Sparkles, Fuel
 } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 
@@ -58,35 +58,21 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchDashboard();
   }, []);
 
   const fetchDashboard = async () => {
+    setLoading(true);
     try {
       const { data: d } = await api.get('/dashboard');
       setData(d);
+      setError(null);
     } catch (err) {
-      // Fallback TransitOps mock data so Vision UI layout always renders beautifully
-      setData({
-        vehicles: { active: 18, available: 6, inMaintenance: 3, total: 27 },
-        trips: { active: 14, pending: 5, completedToday: 22 },
-        drivers: { onDuty: 21, expiringLicenses: 2, total: 28 },
-        fleetUtilization: 94,
-        recentTrips: [
-          { _id: 't-1', tripNumber: 'TRP-8402', origin: 'Chicago HQ Depot', destination: 'Detroit Assembly Plant', status: 'in_progress', vehicle: { registrationNumber: 'IL-8492-TX' }, driver: { name: 'Marcus Vance' }, progress: 68 },
-          { _id: 't-2', tripNumber: 'TRP-8399', origin: 'Indianapolis Hub', destination: 'Columbus Distribution', status: 'in_progress', vehicle: { registrationNumber: 'IN-4019-FL' }, driver: { name: 'Elena Rostova' }, progress: 85 },
-          { _id: 't-3', tripNumber: 'TRP-8395', origin: 'Milwaukee Freight', destination: 'Chicago HQ Depot', status: 'completed', vehicle: { registrationNumber: 'WI-9021-FR' }, driver: { name: 'David Kim' }, progress: 100 },
-          { _id: 't-4', tripNumber: 'TRP-8405', origin: 'St. Louis Terminal', destination: 'Louisville Center', status: 'scheduled', vehicle: { registrationNumber: 'MO-1182-TR' }, driver: { name: 'Sarah Jenkins' }, progress: 15 },
-        ],
-        alerts: [
-          { id: 1, title: 'Vehicle IL-8492-TX due for 50,000mi service', time: '10 MINS AGO', type: 'warning' },
-          { id: 2, title: 'Driver CDL license renewal required for J. Miller', time: '4 HOURS AGO', type: 'alert' },
-          { id: 3, title: 'Trip TRP-8399 arrived ahead of schedule at Columbus', time: '6 HOURS AGO', type: 'success' },
-          { id: 4, title: 'Monthly telematics efficiency report ready', time: 'YESTERDAY', type: 'info' },
-        ]
-      });
+      console.error('Failed to fetch dashboard records:', err);
+      setError(err.response?.data?.message || 'Failed to fetch live dashboard records');
     } finally {
       setLoading(false);
     }
@@ -95,59 +81,132 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-zinc-400 font-mono text-sm">
-        <span className="spinner mr-3" /> Loading TransitOps Fleet Command...
+        <span className="spinner mr-3" /> Loading live database records...
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-8 pure-black-card rounded-3xl text-center max-w-lg mx-auto my-12">
+        <AlertTriangle size={36} className="text-amber-400 mx-auto mb-3" />
+        <h3 className="text-base font-bold text-white mb-1">Could Not Load Records</h3>
+        <p className="text-xs text-zinc-400 mb-4">{error || 'Database connection error'}</p>
+        <button
+          onClick={fetchDashboard}
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all cursor-pointer"
+        >
+          Retry Fetching
+        </button>
       </div>
     );
   }
 
   const currentPersona = personaConfigs[user?.role] || personaConfigs.fleet_manager;
 
-  // TransitOps Fleet KPIs formatted in Vision UI style
+  // Real KPI Cards dynamically calculated from backend records
+  const totalVehicles = data.vehicles?.total ?? 0;
+  const activeVehicles = data.vehicles?.active ?? 0;
+  const availableVehicles = data.vehicles?.available ?? 0;
+  const inMaintenance = data.vehicles?.inMaintenance ?? 0;
+
+  const totalTrips = data.trips?.total ?? 0;
+  const activeTrips = data.trips?.active ?? 0;
+  const completedTrips = data.trips?.completed ?? 0;
+  const pendingTrips = data.trips?.pending ?? 0;
+
+  const totalDrivers = data.drivers?.total ?? 0;
+  const driversOnDuty = data.drivers?.onDuty ?? 0;
+  const expiringLicenses = data.drivers?.expiringLicenses ?? 0;
+
+  const totalFuelCost = data.fuel?.totalCost ?? 0;
+  const totalFuelLiters = data.fuel?.totalLiters ?? 0;
+
+  const fleetUtilization = Math.min(100, Math.max(0, data.fleetUtilization ?? 0));
+  const utilDash = Math.round((fleetUtilization / 100) * 251);
+
+  const operationalRatio = totalVehicles > 0
+    ? Math.round(((totalVehicles - inMaintenance) / totalVehicles) * 100)
+    : 100;
+  const opDash = Math.round((operationalRatio / 100) * 240);
+
   const kpis = [
     {
       title: 'Active Vehicles',
-      value: data.vehicles?.active || 18,
-      change: '+12%',
+      value: activeVehicles,
+      change: `${totalVehicles} Total`,
       positive: true,
-      subtitle: 'Deployed on route',
+      subtitle: `${availableVehicles} Available for dispatch`,
       icon: Truck
     },
     {
-      title: 'Available Fleet',
-      value: data.vehicles?.available || 6,
-      change: 'Ready',
+      title: 'Fleet Trips',
+      value: totalTrips,
+      change: `${activeTrips} Dispatched`,
       positive: true,
-      subtitle: 'Immediate dispatch',
-      icon: ShieldCheck
-    },
-    {
-      title: 'Active Trips',
-      value: data.trips?.active || 14,
-      change: '+8%',
-      positive: true,
-      subtitle: 'Live telematics',
+      subtitle: `${completedTrips} Completed · ${pendingTrips} Draft`,
       icon: Route
     },
     {
       title: 'Drivers On Duty',
-      value: data.drivers?.onDuty || 21,
-      change: 'Active',
+      value: driversOnDuty,
+      change: `${totalDrivers} Registered`,
       positive: true,
-      subtitle: 'Roster ready',
+      subtitle: `${data.drivers?.available ?? 0} Available roster`,
       icon: Users
+    },
+    {
+      title: 'Fuel Expenses',
+      value: `$${totalFuelCost.toLocaleString()}`,
+      change: `${totalFuelLiters.toLocaleString()} L`,
+      positive: true,
+      subtitle: 'Recorded fuel spend',
+      icon: Fuel
     }
   ];
 
-  const tripsList = data.recentTrips || [];
-  const alertsList = data.alerts || [
-    { id: 1, title: 'Vehicle IL-8492-TX due for 50,000mi service', time: '10 MINS AGO', type: 'warning' },
-    { id: 2, title: 'Driver CDL license renewal required', time: '4 HOURS AGO', type: 'alert' },
-    { id: 3, title: 'Trip TRP-8399 arrived ahead of schedule', time: '6 HOURS AGO', type: 'success' },
-  ];
+  const tripsList = data.trips?.recent || [];
+  const maintenanceList = data.recentMaintenance || [];
+  const monthlyTrips = data.trips?.monthly || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const maxMonthly = Math.max(1, ...monthlyTrips);
+
+  // Dynamically generate SVG path coordinates for the 12 months (Jan-Dec)
+  const chartWidth = 700;
+  const chartTop = 25;
+  const chartBottom = 180;
+  const stepX = chartWidth / 11;
+
+  const points = monthlyTrips.map((count, idx) => {
+    const x = idx * stepX;
+    const normalizedHeight = count / maxMonthly;
+    const y = chartBottom - normalizedHeight * (chartBottom - chartTop);
+    return { x, y };
+  });
+
+  // Smooth bezier curve generator for dynamic monthly data
+  const buildSmoothPath = (pts) => {
+    if (pts.length === 0) return '';
+    let d = `M ${pts[0].x},${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i];
+      const p1 = pts[i + 1];
+      const midX = (p0.x + p1.x) / 2;
+      d += ` C ${midX},${p0.y} ${midX},${p1.y} ${p1.x},${p1.y}`;
+    }
+    return d;
+  };
+
+  const linePath = buildSmoothPath(points);
+  const areaPath = `${linePath} L ${chartWidth},200 L 0,200 Z`;
+
+  // Dynamic progress percentages for Live Database Summary
+  const vehicleActivePct = totalVehicles > 0 ? Math.round((activeVehicles / totalVehicles) * 100) : 0;
+  const tripsCompletedPct = totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0;
+  const driverDutyPct = totalDrivers > 0 ? Math.round((driversOnDuty / totalDrivers) * 100) : 0;
 
   return (
     <div className="space-y-6 text-gray-100 font-sans">
-      {/* ROW 1: Top 4 TransitOps Fleet KPI Cards (Vision UI style) */}
+      {/* ROW 1: Dynamically Calculated KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {kpis.map((card, idx) => {
           const Icon = card.icon;
@@ -160,7 +219,7 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-zinc-400">{card.title}</p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-xl font-extrabold text-white">{card.value}</span>
-                  <span className={`text-xs font-bold ${card.positive ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  <span className="text-xs font-bold text-emerald-400">
                     {card.change}
                   </span>
                 </div>
@@ -174,11 +233,10 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* ROW 2: Welcome Hero Card + Fleet Utilization Gauge + Safety Telematics Ring */}
+      {/* ROW 2: Welcome Hero + Dynamic Fleet Utilization Gauge + Operational Status Ring */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Welcome Hero Card (6 cols) */}
+        {/* Left Hero Card (6 cols) */}
         <div className="lg:col-span-6 rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-blue-950/50 border border-zinc-800/80 p-7 relative overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex flex-col justify-between min-h-[250px]">
-          {/* Ethereal blue ambient lighting */}
           <div className="absolute -right-16 -bottom-16 w-80 h-80 bg-blue-500/20 rounded-full blur-[90px] pointer-events-none" />
           <div className="absolute right-6 top-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-cyan-500/15 to-blue-600/10 blur-[40px] pointer-events-none" />
 
@@ -188,13 +246,12 @@ export default function DashboardPage() {
                 {currentPersona.title}
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white">{user?.name || 'TransitOps User'}</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">{user?.name || 'Enterprise User'}</h2>
             <p className="text-xs text-zinc-400 mt-2 max-w-md leading-relaxed">
               {currentPersona.subtitle}
             </p>
           </div>
 
-          {/* Quick Action Links */}
           <div className="relative z-10 pt-4 mt-4 border-t border-zinc-800/80 flex flex-wrap items-center gap-2">
             {currentPersona.quickLinks.map((ql, idx) => {
               const QIcon = ql.icon;
@@ -212,15 +269,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Middle Fleet Utilization Gauge (3 cols) */}
+        {/* Dynamic Fleet Utilization Gauge (3 cols) */}
         <div className="lg:col-span-3 pure-black-card rounded-3xl p-6 flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-white">Fleet Utilization</h3>
-            <p className="text-[0.7rem] text-zinc-400">Active vs Total Fleet</p>
+            <p className="text-[0.7rem] text-zinc-400">Active vs Total Fleet Records</p>
           </div>
 
           <div className="flex flex-col items-center justify-center my-4">
-            {/* Glowing semi-circular gauge */}
             <div className="relative w-36 h-20 flex items-end justify-center overflow-hidden">
               <svg className="w-36 h-36 -rotate-90 transform" viewBox="0 0 100 100">
                 <circle
@@ -239,49 +295,46 @@ export default function DashboardPage() {
                   fill="transparent"
                   stroke="#3b82f6"
                   strokeWidth="10"
-                  strokeDasharray="118 251"
+                  strokeDasharray={`${utilDash} 251`}
                   strokeLinecap="round"
-                  className="filter drop-shadow-[0_0_8px_#3b82f6]"
+                  className="filter drop-shadow-[0_0_8px_#3b82f6] transition-all duration-1000"
                 />
               </svg>
               <div className="absolute bottom-2 flex flex-col items-center">
                 <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 mb-1">
                   <Activity size={18} />
                 </div>
-                <span className="text-xl font-black text-white">{data.fleetUtilization || 94}%</span>
+                <span className="text-xl font-black text-white">{fleetUtilization}%</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center justify-between text-xs text-zinc-500 border-t border-zinc-900 pt-3">
             <span>0%</span>
-            <span className="font-semibold text-zinc-400">Live GPS Status</span>
+            <span className="font-semibold text-zinc-400">Real-time GPS Ratio</span>
             <span>100%</span>
           </div>
         </div>
 
-        {/* Right Safety Score & Compliance Ring (3 cols) */}
+        {/* Dynamic Operational Status Score Ring (3 cols) */}
         <div className="lg:col-span-3 pure-black-card rounded-3xl p-6 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white">Safety Telematics</h3>
-            <button className="text-zinc-500 hover:text-white">
-              <MoreHorizontal size={16} />
-            </button>
+            <h3 className="text-sm font-bold text-white">Operational Status</h3>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">{operationalRatio}% Ready</span>
           </div>
 
           <div className="flex items-center justify-between my-4">
             <div className="space-y-3">
               <div>
                 <p className="text-[0.68rem] text-zinc-400">In Maintenance</p>
-                <p className="text-base font-extrabold text-white">{data.vehicles?.inMaintenance || 3} Units</p>
+                <p className="text-base font-extrabold text-white">{inMaintenance} Units</p>
               </div>
               <div>
                 <p className="text-[0.68rem] text-zinc-400">Expiring Lic.</p>
-                <p className="text-base font-extrabold text-white">{data.drivers?.expiringLicenses || 2} Drivers</p>
+                <p className="text-base font-extrabold text-white">{expiringLicenses} Drivers</p>
               </div>
             </div>
 
-            {/* Glowing neon emerald circular score ring */}
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-24 h-24 -rotate-90 transform" viewBox="0 0 100 100">
                 <circle
@@ -299,33 +352,32 @@ export default function DashboardPage() {
                   fill="transparent"
                   stroke="#10b981"
                   strokeWidth="8"
-                  strokeDasharray="225 240"
+                  strokeDasharray={`${opDash} 240`}
                   strokeLinecap="round"
-                  className="filter drop-shadow-[0_0_8px_#10b981]"
+                  className="filter drop-shadow-[0_0_8px_#10b981] transition-all duration-1000"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[0.65rem] text-zinc-400 font-medium">Safety</span>
-                <span className="text-lg font-black text-white">9.4</span>
-                <span className="text-[0.58rem] text-zinc-500">Total Score</span>
+                <span className="text-[0.65rem] text-zinc-400 font-medium">Uptime</span>
+                <span className="text-base font-black text-white">{operationalRatio}%</span>
+                <span className="text-[0.58rem] text-zinc-500">Fleet Score</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ROW 3: Interactive Visual Charts (Fleet Delivery Volume Area Chart + Active Fleet Counters) */}
+      {/* ROW 3: Dynamic Visual Charts (Fleet Dispatch Area Chart + Live Database Summary) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Fleet Analytics & Deliveries Area Chart (7 cols) */}
+        {/* Dynamic Fleet Dispatch & Performance Area Chart (7 cols) */}
         <div className="lg:col-span-7 pure-black-card rounded-3xl p-6">
           <div className="mb-6">
-            <h3 className="text-base font-bold text-white">Fleet Performance Overview</h3>
+            <h3 className="text-base font-bold text-white">Fleet Dispatch & Monthly Overview</h3>
             <p className="text-xs text-zinc-400">
-              <span className="text-emerald-400 font-bold">(+14.2%) deliveries</span> in 2026
+              Dynamically rendering <span className="text-emerald-400 font-bold">{totalTrips} logged trips</span> across months
             </p>
           </div>
 
-          {/* Glowing curved SVG area graphic */}
           <div className="h-60 w-full relative">
             <svg className="w-full h-full overflow-visible" viewBox="0 0 700 200" preserveAspectRatio="none">
               <defs>
@@ -333,105 +385,101 @@ export default function DashboardPage() {
                   <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.45" />
                   <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
                 </linearGradient>
-                <linearGradient id="areaGradCyan" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
-                </linearGradient>
               </defs>
 
-              {/* Grid lines */}
-              {[40, 80, 120, 160].map((y, idx) => (
-                <line key={idx} x1="0" y1={y} x2="700" y2={y} stroke="#1e293b" strokeDasharray="4" />
+              {[40, 80, 120, 160].map((y, i) => (
+                <line key={i} x1="0" y1={y} x2="700" y2={y} stroke="#1e293b" strokeDasharray="4" />
               ))}
 
-              {/* Wave 1 (Cyan) */}
               <path
-                d="M0,130 C100,20 200,160 300,100 C400,40 500,140 600,80 C650,50 700,90 700,90 L700,200 L0,200 Z"
-                fill="url(#areaGradCyan)"
-              />
-              <path
-                d="M0,130 C100,20 200,160 300,100 C400,40 500,140 600,80 C650,50 700,90 700,90"
-                fill="none"
-                stroke="#06b6d4"
-                strokeWidth="3"
-                className="filter drop-shadow-[0_0_6px_#06b6d4]"
-              />
-
-              {/* Wave 2 (Blue) */}
-              <path
-                d="M0,160 C120,130 220,110 320,140 C420,170 520,60 620,90 C660,100 700,70 700,70 L700,200 L0,200 Z"
+                d={areaPath}
                 fill="url(#areaGradBlue)"
+                className="transition-all duration-700"
               />
               <path
-                d="M0,160 C120,130 220,110 320,140 C420,170 520,60 620,90 C660,100 700,70 700,70"
+                d={linePath}
                 fill="none"
                 stroke="#3b82f6"
                 strokeWidth="3.5"
-                className="filter drop-shadow-[0_0_10px_#3b82f6]"
+                className="filter drop-shadow-[0_0_10px_#3b82f6] transition-all duration-700"
               />
+
+              {/* Render dynamic monthly data nodes */}
+              {points.map((pt, i) => (
+                <circle
+                  key={i}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="3.5"
+                  className="fill-cyan-400 stroke-black stroke-2"
+                />
+              ))}
             </svg>
             <div className="flex justify-between text-[0.65rem] text-zinc-500 font-mono mt-3">
-              <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
-              <span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
+              {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, idx) => (
+                <span key={idx} className={monthlyTrips[idx] > 0 ? 'text-blue-400 font-bold' : ''}>{m}</span>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Active Fleet & Route Metrics Bar Chart (5 cols) */}
+        {/* Live Database Summary & Monthly Activity Bars (5 cols) */}
         <div className="lg:col-span-5 pure-black-card rounded-3xl p-6 flex flex-col justify-between">
-          {/* Top glowing bar visual */}
           <div className="rounded-2xl bg-gradient-to-br from-blue-950/70 via-zinc-900 to-zinc-950 p-5 border border-white/10 mb-5">
             <div className="h-32 flex items-end justify-between gap-2">
-              {[45, 70, 30, 85, 55, 90, 60, 40, 75, 95, 65, 80].map((val, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    style={{ height: `${val}%` }}
-                    className="w-full rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)] hover:bg-blue-400 transition-all"
-                  />
-                </div>
-              ))}
+              {monthlyTrips.map((val, idx) => {
+                const barHeightPct = Math.max(10, Math.round((val / maxMonthly) * 100));
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-1" title={`${val} trips`}>
+                    <div
+                      style={{ height: `${barHeightPct}%` }}
+                      className="w-full rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)] hover:bg-blue-400 transition-all duration-700"
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           <div>
-            <h3 className="text-base font-bold text-white">Active Fleet Telematics</h3>
+            <h3 className="text-base font-bold text-white">Live Database Summary</h3>
             <p className="text-xs text-zinc-400">
-              <span className="text-emerald-400 font-bold">(+18%)</span> real-time sensor efficiency
+              Real-time activity ratios across all modules
             </p>
           </div>
 
-          {/* 4 Bottom TransitOps metric counters */}
+          {/* 4 Bottom Real Ratios */}
           <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-zinc-900">
             <div>
               <div className="flex items-center gap-1.5 text-[0.68rem] text-zinc-400 font-semibold mb-1">
                 <span className="w-2 h-2 rounded bg-blue-500" />
                 <span>Vehicles</span>
               </div>
-              <p className="text-sm font-extrabold text-white">248</p>
+              <p className="text-sm font-extrabold text-white">{totalVehicles}</p>
               <div className="w-full h-1 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-blue-500 w-3/4 rounded-full" />
+                <div style={{ width: `${vehicleActivePct}%` }} className="h-full bg-blue-500 rounded-full transition-all duration-700" />
               </div>
             </div>
 
             <div>
               <div className="flex items-center gap-1.5 text-[0.68rem] text-zinc-400 font-semibold mb-1">
                 <span className="w-2 h-2 rounded bg-cyan-400" />
-                <span>Routes</span>
+                <span>Trips</span>
               </div>
-              <p className="text-sm font-extrabold text-white">1,420</p>
+              <p className="text-sm font-extrabold text-white">{totalTrips}</p>
               <div className="w-full h-1 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-cyan-400 w-4/5 rounded-full" />
+                <div style={{ width: `${tripsCompletedPct}%` }} className="h-full bg-cyan-400 rounded-full transition-all duration-700" />
               </div>
             </div>
 
             <div>
               <div className="flex items-center gap-1.5 text-[0.68rem] text-zinc-400 font-semibold mb-1">
                 <span className="w-2 h-2 rounded bg-emerald-400" />
-                <span>Fuel Eff.</span>
+                <span>Fuel Cost</span>
               </div>
-              <p className="text-sm font-extrabold text-white">94.8%</p>
+              <p className="text-sm font-extrabold text-white">${totalFuelCost.toLocaleString()}</p>
               <div className="w-full h-1 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-emerald-400 w-11/12 rounded-full" />
+                <div style={{ width: '100%' }} className="h-full bg-emerald-400 rounded-full" />
               </div>
             </div>
 
@@ -440,25 +488,25 @@ export default function DashboardPage() {
                 <span className="w-2 h-2 rounded bg-blue-600" />
                 <span>Drivers</span>
               </div>
-              <p className="text-sm font-extrabold text-white">184</p>
+              <p className="text-sm font-extrabold text-white">{totalDrivers}</p>
               <div className="w-full h-1 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-blue-600 w-2/3 rounded-full" />
+                <div style={{ width: `${driverDutyPct}%` }} className="h-full bg-blue-600 rounded-full transition-all duration-700" />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ROW 4: Bottom Active Dispatches Table + Fleet Alerts Overview Timeline */}
+      {/* ROW 4: Real Database Trips Table + Maintenance Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* TransitOps Dispatched Trips Table (8 cols) */}
+        {/* Dispatched Trips Table (8 cols) */}
         <div className="lg:col-span-8 pure-black-card rounded-3xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-base font-bold text-white">Active Trips & Dispatches</h3>
+              <h3 className="text-base font-bold text-white">Recent Trips in Database</h3>
               <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
                 <CheckCircle2 size={13} className="text-emerald-400" />
-                <span className="font-bold text-zinc-300">{tripsList.length} active routes</span> monitored in real time
+                <span className="font-bold text-zinc-300">{tripsList.length} trip records</span> loaded directly from records
               </p>
             </div>
             <Link
@@ -471,86 +519,83 @@ export default function DashboardPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-zinc-900 text-[0.65rem] font-extrabold text-zinc-500 uppercase tracking-widest">
-                  <th className="pb-3">ROUTE & TRIP #</th>
-                  <th className="pb-3">VEHICLE / DRIVER</th>
-                  <th className="pb-3">STATUS</th>
-                  <th className="pb-3">ROUTE COMPLETION</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-900 text-xs">
-                {tripsList.map((trip, idx) => (
-                  <tr key={idx} className="hover:bg-zinc-900/40 transition-colors">
-                    <td className="py-4">
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-extrabold text-xs">
-                          🛣️
-                        </span>
-                        <div>
-                          <p className="font-bold text-white">{trip.tripNumber || 'TRP-8400'}</p>
-                          <p className="text-[0.68rem] text-zinc-400 truncate max-w-[160px]">
-                            {trip.origin} → {trip.destination}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-4">
-                      <p className="font-semibold text-white">{trip.vehicle?.registrationNumber || 'Fleet Unit'}</p>
-                      <p className="text-[0.68rem] text-zinc-400">{trip.driver?.name || 'Assigned Driver'}</p>
-                    </td>
-
-                    <td className="py-4">
-                      <StatusBadge status={trip.status || 'in_progress'} />
-                    </td>
-
-                    <td className="py-4 w-44">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-white w-8">{trip.progress || 75}%</span>
-                        <div className="flex-1 h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-                          <div
-                            style={{ width: `${trip.progress || 75}%` }}
-                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full shadow-[0_0_8px_#3b82f6]"
-                          />
-                        </div>
-                      </div>
-                    </td>
+            {tripsList.length === 0 ? (
+              <div className="text-center py-10 text-zinc-500 text-xs">
+                No trip records found in database yet. Create a trip from the Trips page to see it live here.
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-900 text-[0.65rem] font-extrabold text-zinc-500 uppercase tracking-widest">
+                    <th className="pb-3">ROUTE & TRIP #</th>
+                    <th className="pb-3">VEHICLE / DRIVER</th>
+                    <th className="pb-3">STATUS</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-zinc-900 text-xs">
+                  {tripsList.map((trip, idx) => (
+                    <tr key={trip._id || idx} className="hover:bg-zinc-900/40 transition-colors">
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-extrabold text-xs">
+                            🛣️
+                          </span>
+                          <div>
+                            <p className="font-bold text-white">TRP-{(trip._id || '').toString().slice(-4).toUpperCase()}</p>
+                            <p className="text-[0.68rem] text-zinc-400 truncate max-w-[180px]">
+                              {trip.source || 'Origin'} → {trip.destination || 'Destination'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-4">
+                        <p className="font-semibold text-white">{trip.vehicle?.registrationNumber || 'Unassigned'}</p>
+                        <p className="text-[0.68rem] text-zinc-400">{trip.driver?.name || 'Unassigned Driver'}</p>
+                      </td>
+
+                      <td className="py-4">
+                        <StatusBadge status={trip.status || 'Draft'} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
-        {/* Fleet Maintenance & Alerts Timeline (4 cols) */}
-        <div className="lg:col-span-4 rounded-3xl bg-zinc-950/80 border border-zinc-800/80 p-6 shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex flex-col justify-between">
+        {/* Real Maintenance & License Alerts (4 cols) */}
+        <div className="lg:col-span-4 pure-black-card rounded-3xl p-6 flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-white">System Alerts & Logs</h3>
+            <h3 className="text-base font-bold text-white">Open Maintenance & Alerts</h3>
             <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
               <TrendingUp size={13} className="text-emerald-400" />
-              <span className="font-bold text-zinc-300">Live Telemetry</span> diagnostics
+              <span className="font-bold text-zinc-300">{maintenanceList.length} open maintenance logs</span>
             </p>
 
-            <div className="mt-6 space-y-6 relative before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-zinc-800">
-              {alertsList.map((alert, idx) => (
-                <div key={idx} className="relative flex items-start gap-4">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[0.6rem] font-bold z-10 ${
-                    alert.type === 'warning'
-                      ? 'bg-amber-500/20 border border-amber-500 text-amber-400'
-                      : alert.type === 'success'
-                      ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-400'
-                      : 'bg-blue-500/20 border border-blue-500 text-blue-400'
-                  }`}>
-                    {alert.type === 'warning' ? '⚠️' : alert.type === 'success' ? '✓' : '🔔'}
-                  </span>
-                  <div>
-                    <p className="text-xs font-bold text-white leading-tight">{alert.title}</p>
-                    <p className="text-[0.68rem] text-zinc-500 mt-0.5">{alert.time}</p>
-                  </div>
+            <div className="mt-6 space-y-5">
+              {maintenanceList.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 text-xs">
+                  All fleet vehicles operational — no open maintenance tickets.
                 </div>
-              ))}
+              ) : (
+                maintenanceList.map((m, idx) => (
+                  <div key={m._id || idx} className="flex items-start gap-3 border-b border-zinc-900/80 pb-3 last:border-0">
+                    <span className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xs">
+                      ⚠️
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-white leading-tight">
+                        {m.vehicle?.registrationNumber || 'Vehicle'}: {m.issue || m.serviceType || 'Maintenance Required'}
+                      </p>
+                      <p className="text-[0.68rem] text-zinc-500 mt-0.5">
+                        {m.priority ? `Priority: ${m.priority}` : 'Open Log'}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
