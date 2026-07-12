@@ -4,7 +4,7 @@ import api from '../api';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import Toast from '../components/Toast';
-import { Plus, CheckCircle } from 'lucide-react';
+import { Plus, CheckCircle, Trash2 } from 'lucide-react';
 
 const TYPES = ['Oil Change', 'Tire Replacement', 'Brake Service', 'Engine Repair', 'Transmission', 'Electrical', 'Body Work', 'General Service', 'Other'];
 
@@ -63,11 +63,22 @@ export default function MaintenancePage() {
 
   const handleClose = async (id) => {
     try {
-      await api.patch(`/maintenance/${id}/close`);
+      await api.patch(`/maintenance/${id}/close`, {});
       setToast({ message: 'Maintenance closed — Vehicle restored to Available', type: 'success' });
       fetchLogs();
     } catch (err) {
       setToast({ message: err.response?.data?.message || 'Error closing', type: 'error' });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this maintenance record?')) return;
+    try {
+      await api.delete(`/maintenance/${id}`);
+      setToast({ message: 'Maintenance record removed', type: 'success' });
+      fetchLogs();
+    } catch (err) {
+      setToast({ message: err.response?.data?.message || 'Error deleting record', type: 'error' });
     }
   };
 
@@ -111,8 +122,8 @@ export default function MaintenancePage() {
               {logs.map(l => (
                 <tr key={l._id}>
                   <td>
-                    <span className="font-mono text-xs text-white">{l.vehicle?.registrationNumber}</span>
-                    <br /><span className="text-xs text-gray-400">{l.vehicle?.name}</span>
+                    <span className="font-mono text-xs text-white">{l.vehicle?.registrationNumber || 'Removed Vehicle'}</span>
+                    <br /><span className="text-xs text-gray-400">{l.vehicle?.name || 'N/A'}</span>
                   </td>
                   <td>{l.type}</td>
                   <td className="max-w-xs truncate">{l.description}</td>
@@ -124,11 +135,20 @@ export default function MaintenancePage() {
                   </td>
                   {canManageMaintenance && (
                     <td>
-                      {l.status === 'Open' && (
-                        <button onClick={() => handleClose(l._id)} className="btn btn-sm btn-success cursor-pointer">
-                          <CheckCircle size={14} /> Close
+                      <div className="flex items-center gap-2">
+                        {l.status === 'Open' && (
+                          <button onClick={() => handleClose(l._id)} className="btn btn-sm btn-success cursor-pointer">
+                            <CheckCircle size={14} /> Close
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(l._id)}
+                          className="btn-icon cursor-pointer hover:text-red hover:border-red/30"
+                          title="Delete record"
+                        >
+                          <Trash2 size={14} />
                         </button>
-                      )}
+                      </div>
                     </td>
                   )}
                 </tr>

@@ -162,8 +162,8 @@ export default function TripsPage() {
                 <tr key={t._id}>
                   <td className="font-medium text-white">{t.source} → {t.destination}</td>
                   <td>
-                    <span className="font-mono text-xs">{t.vehicle?.registrationNumber}</span>
-                    <br /><span className="text-xs text-gray-400">{t.vehicle?.name}</span>
+                    <span className="font-mono text-xs">{t.vehicle?.registrationNumber || 'Removed Vehicle'}</span>
+                    <br /><span className="text-xs text-gray-400">{t.vehicle?.name || 'N/A'}</span>
                   </td>
                   <td>{t.driver?.name || '—'}</td>
                   <td>{t.cargoWeight}</td>

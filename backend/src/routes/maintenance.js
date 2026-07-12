@@ -6,6 +6,7 @@ const {
   getMaintenanceLogs,
   createMaintenanceLog,
   closeMaintenanceLog,
+  deleteMaintenanceLog,
 } = require('../controllers/maintenanceController');
 
 router.use(protect);
@@ -15,5 +16,6 @@ router.route('/')
   .post(authorize('fleet_manager', 'dispatcher'), createMaintenanceLog);
 
 router.patch('/:id/close', authorize('fleet_manager', 'dispatcher'), closeMaintenanceLog);
+router.delete('/:id', authorize('fleet_manager', 'dispatcher'), deleteMaintenanceLog);
 
 module.exports = router;

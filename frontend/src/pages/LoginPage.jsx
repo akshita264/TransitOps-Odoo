@@ -65,6 +65,7 @@ export default function LoginPage() {
     setEmail(demoEmail);
     setPassword('password123');
     setIsRegister(false);
+    setError('');
   };
 
   const handleResetPassword = () => {

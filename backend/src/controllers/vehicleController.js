@@ -1,4 +1,8 @@
 const Vehicle = require('../models/Vehicle');
+const MaintenanceLog = require('../models/MaintenanceLog');
+const Trip = require('../models/Trip');
+const FuelLog = require('../models/FuelLog');
+const Expense = require('../models/Expense');
 
 // GET /api/vehicles
 exports.getVehicles = async (req, res) => {
@@ -89,7 +93,13 @@ exports.deleteVehicle = async (req, res) => {
     }
 
     await Vehicle.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Vehicle deleted successfully' });
+    await Promise.all([
+      MaintenanceLog.deleteMany({ vehicle: req.params.id }),
+      Trip.deleteMany({ vehicle: req.params.id }),
+      FuelLog.deleteMany({ vehicle: req.params.id }),
+      Expense.deleteMany({ vehicle: req.params.id }),
+    ]);
+    res.json({ message: 'Vehicle and related records deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

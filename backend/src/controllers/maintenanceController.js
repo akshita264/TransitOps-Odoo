@@ -64,7 +64,7 @@ exports.closeMaintenanceLog = async (req, res) => {
 
     log.status = 'Closed';
     log.closedAt = new Date();
-    if (req.body.cost) log.cost = req.body.cost;
+    if (req.body && req.body.cost) log.cost = req.body.cost;
     await log.save();
 
     // Business Rule: Closing maintenance restores vehicle to Available (unless Retired)
@@ -91,3 +91,37 @@ exports.closeMaintenanceLog = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// DELETE /api/maintenance/:id
+exports.deleteMaintenanceLog = async (req, res) => {
+  try {
+    const log = await MaintenanceLog.findById(req.params.id);
+    if (!log) {
+      return res.status(404).json({ message: 'Maintenance log not found' });
+    }
+
+    const vehicleId = log.vehicle;
+    const wasOpen = log.status === 'Open';
+
+    await MaintenanceLog.findByIdAndDelete(req.params.id);
+
+    if (wasOpen && vehicleId) {
+      const vehicle = await Vehicle.findById(vehicleId);
+      if (vehicle && vehicle.status === 'In Shop') {
+        const openLogs = await MaintenanceLog.countDocuments({
+          vehicle: vehicleId,
+          status: 'Open',
+        });
+        if (openLogs === 0) {
+          vehicle.status = 'Available';
+          await vehicle.save();
+        }
+      }
+    }
+
+    res.json({ message: 'Maintenance log deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

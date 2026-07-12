@@ -587,10 +587,10 @@ export default function DashboardPage() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-white leading-tight">
-                        {m.vehicle?.registrationNumber || 'Vehicle'}: {m.issue || m.serviceType || 'Maintenance Required'}
+                        {m.vehicle?.registrationNumber || 'Removed Vehicle'}: {m.description || m.type || m.issue || m.serviceType || 'Maintenance Required'}
                       </p>
                       <p className="text-[0.68rem] text-zinc-500 mt-0.5">
-                        {m.priority ? `Priority: ${m.priority}` : 'Open Log'}
+                        {m.type ? `Type: ${m.type}` : (m.priority ? `Priority: ${m.priority}` : 'Open Log')}
                       </p>
                     </div>
                   </div>
