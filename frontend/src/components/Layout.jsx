@@ -61,38 +61,37 @@ export default function Layout({ children }) {
   );
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-black text-gray-100">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Pure Black */}
       <aside className={`
         fixed lg:sticky top-0 left-0 z-50 h-screen
         flex flex-col
-        bg-dark-800/95 backdrop-blur-xl
-        border-r border-white/[0.06]
+        bg-black
+        border-r border-white/10
         transition-all duration-300 ease-in-out
         ${collapsed ? 'w-20' : 'w-64'}
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className="flex items-center gap-3.5 px-5 py-6 border-b border-white/[0.08]">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent via-cyan to-blue flex items-center justify-center flex-shrink-0 shadow-lg shadow-accent/20">
-            <Truck size={20} className="text-dark-900 stroke-[2.5]" />
-          </div>
-          {!collapsed && (
+        <div className="flex items-center px-6 py-6 border-b border-white/10">
+          {!collapsed ? (
             <div className="overflow-hidden">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <h1 className="text-lg font-black text-white tracking-tight leading-tight">TransitOps</h1>
-                <span className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded bg-accent/20 text-accent uppercase tracking-wider">PRO</span>
+                <span className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-400 uppercase tracking-wider">PRO</span>
               </div>
               <p className="text-[0.68rem] text-gray-400 tracking-wider uppercase font-medium">Smart Fleet Platform</p>
             </div>
+          ) : (
+            <span className="text-xs font-black text-white uppercase mx-auto">TO</span>
           )}
         </div>
 
@@ -108,8 +107,8 @@ export default function Layout({ children }) {
                 flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-sm font-semibold
                 transition-all duration-200 group
                 ${isActive
-                  ? 'bg-gradient-to-r from-accent/15 to-cyan/10 text-accent border border-accent/30 shadow-lg shadow-accent/10'
-                  : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.05] border border-transparent'
+                  ? 'bg-blue-600 text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)] font-bold border border-blue-500/50'
+                  : 'text-gray-400 hover:text-white hover:bg-white/[0.06] border border-transparent'
                 }
                 ${collapsed ? 'justify-center' : ''}
               `}
@@ -121,7 +120,7 @@ export default function Layout({ children }) {
         </nav>
 
         {/* User section */}
-        <div className="p-4 border-t border-white/[0.06]">
+        <div className="p-4 border-t border-white/10 bg-black">
           {!collapsed && (
             <div className="mb-3 px-2">
               <div className="flex items-center gap-2 mb-1">
@@ -149,16 +148,16 @@ export default function Layout({ children }) {
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-dark-600 border border-white/[0.08] items-center justify-center cursor-pointer hover:bg-dark-500 transition-colors"
+          className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-black border border-white/20 items-center justify-center cursor-pointer hover:bg-zinc-900 transition-colors"
         >
           <ChevronRight size={12} className={`text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
         </button>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-h-screen">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-3.5 bg-dark-900/85 backdrop-blur-xl border-b border-white/[0.06] shadow-sm">
+      <main className="flex-1 min-h-screen bg-black">
+        {/* Top bar - Pure Black */}
+        <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-3.5 bg-black/90 backdrop-blur-xl border-b border-white/10 shadow-sm">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileOpen(true)}
@@ -166,10 +165,7 @@ export default function Layout({ children }) {
             >
               <Menu size={20} />
             </button>
-            <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-dark-700/60 border border-white/[0.06] text-xs font-medium text-gray-300">
-              <span className="live-pulse" />
-              <span className="tracking-wide uppercase font-mono text-[0.68rem] text-accent">Real-time Telemetry Online</span>
-            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 hidden sm:inline">Fleet Command</span>
           </div>
 
           <div className="flex items-center gap-4">
